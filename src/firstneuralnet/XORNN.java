@@ -4,131 +4,105 @@ public class XORNN {
     
     private final float alpha = 0.01f;       //Learning rate
     
-    private Matrix w1, w2, b1, b2;
+    private final Matrix[] weight, bias;
     
-    public XORNN(int numInput, int numHidden, int numOutput){
+    public XORNN(int numInput, int[] hidden, int numOutput){
         
-        w1 = new Matrix(numInput, numHidden);
-        w2 = new Matrix(numHidden, numOutput);
-        b1 = new Matrix(1, numHidden);
-        b2 = new Matrix(1, numOutput);
+        int numHidden = hidden.length;
         
-        init();
-    }
-    
-    private void init(){
-        fillRandom(w1);
-        fillRandom(w2);
-        fillRandom(b1);
-        fillRandom(b2);
-    }
-    
-    public float[][] compute(float[] input){
+        weight = new Matrix[numHidden+1];
+        bias = new Matrix[numHidden+1];
         
-        Matrix I = new Matrix(1, input.length);
-        I.set(input);
+        //Input layer
+        weight[0] = new Matrix(hidden[0], numInput);
+        bias[0] = new Matrix(hidden[0], 1);
         
-//        System.out.println("INPUT");
-//        I.print();
-//        
-//        System.out.println("W1");
-//        w1.print();
-        
-        Matrix hiddenOutput = sig(I.times(w1).plus(b1));
-        
-//        System.out.println("HIDDEN OUTPUT");
-//        hiddenOutput.print();
-//        
-//        System.out.println("W2");
-//        w2.print();
-        
-        Matrix result = sig(hiddenOutput.times(w2).plus(b2));
-        
-//        System.out.println("RESULT");
-//        result.print();
-        
-        return result.getData();
-    }
-    
-    public void train(float[] data, float[] target){
-        
-        Matrix I = new Matrix(1, data.length);
-        I.set(data);
-        
-//        System.out.println("INPUT");
-//        I.print();
-//        
-//        System.out.println("W1");
-//        w1.print();
-        
-        Matrix hiddenOutput = sig(I.times(w1).plus(b1));
-        
-//        System.out.println("HIDDEN OUTPUT");
-//        hiddenOutput.print();
-//        
-//        System.out.println("W2");
-//        w2.print();
-        
-        Matrix guess = sig(hiddenOutput.times(w2).plus(b2));
-        
-//        System.out.println("GUESS");
-//        guess.print();
-        
-        //Calculate layer 2 gradients
-        Matrix outputGrad = new Matrix(1, w2.getCols());
-        for(int i=0; i<outputGrad.getCols(); i++){
-            float err = target[i] - guess.get(0, i);
-            float val = sigder(guess.get(0, i)) * err;
-            outputGrad.set(0, i, val);
+        //Hidden layers
+        for(int i=1; i<numHidden; i++){
+            weight[i] = new Matrix(hidden[i], hidden[i-1]);   
+            bias[i] = new Matrix(hidden[i], 1);
         }
         
-//        System.out.println("LAYER 2 GRAD");
-//        outputGrad.print();
-
-        //Calculate layer 2 biases
-        b2 = b2.plus(outputGrad.times(alpha));
+        //Output layer
+        weight[numHidden] = new Matrix(numOutput, hidden[numHidden-1]);    
+        bias[numHidden] = new Matrix(numOutput, 1);
         
-        //Tune layer 2
-        for(int i=0; i<w2.getCols(); i++){          //For every output neuron
-            for(int j=0; j<w2.getRows(); j++){      //For every hidden neuron
-                
-                float dw = alpha * hiddenOutput.get(0, i) * outputGrad.get(0, i);
-                float w = w2.get(j, i) + dw;
-                w2.set(j, i, w);
+        //Initialize as random values
+        for(int i=0; i<weight.length; i++){
+            fillRandom(weight[i]);
+            fillRandom(bias[i]);
+        }
+    }
+    
+    public Matrix compute(float[] data){
+        
+        Matrix[] output = new Matrix[weight.length];
+        
+        //Input layer forward propegation
+        Matrix input = new Matrix(data.length, 1);
+        input.set(data);
+        output[0] = sig(weight[0].times(input).plus(bias[0]));
+        
+        //Hidden layer forward propegation
+        for(int i=1; i<output.length; i++){
+            output[i] = sig(weight[i].times(output[i-1]).plus(bias[i]));
+        }
+        
+        return output[output.length-1];
+    }
+    
+    public void train(float[] data, float[] solution){
+        
+        if(data.length != weight[0].getCols() || solution.length != weight[weight.length-1].getRows()){
+            System.out.println("Training data wrong dimensions!");
+            return;
+        }
+        
+        Matrix[] output = new Matrix[weight.length];
+        Matrix[] gradient = new Matrix[weight.length];
+        
+        //Input layer forward propegation
+        Matrix input = new Matrix(data.length, 1);
+        input.set(data);
+        output[0] = sig(weight[0].times(input).plus(bias[0]));
+        
+        //Hidden layer forward propegation
+        for(int i=1; i<output.length; i++){
+            output[i] = sig(weight[i].times(output[i-1]).plus(bias[i]));
+        }
+        
+        //Output layer gradients
+        Matrix target = new Matrix(solution.length, 1);
+        target.set(solution);
+        
+        int lastLayer = weight.length-1;
+        
+        gradient[lastLayer] = target.minus(output[lastLayer]);
+        
+        for(int i=0; i<gradient[lastLayer].getRows(); i++){
+            float val = gradient[lastLayer].get(i, 0) * sigder(output[lastLayer].get(i, 0));
+            gradient[lastLayer].set(i, 0, val);
+        }
+        
+        //Hidden layer gradients
+        for(int i=lastLayer-1; i>=0; i--){
+            gradient[i] = weight[i+1].transpose().times(gradient[i+1]);
+            
+            for(int j=0; j<gradient[i].getRows(); j++){
+                float val = gradient[i].get(i, 0) * sigder(output[i].get(j, 0));
+                gradient[i].set(j, 0, val);
             }
         }
         
-//        System.out.println("W2");
-//        w2.print();
-        
-        //Calculate layer 1 gradients
-        Matrix hiddenGrad = new Matrix(1, w1.getCols());
-        for(int i=0; i<hiddenGrad.getCols(); i++){          //For every hidden neuron
-            for(int j=0; j<outputGrad.getCols(); j++){      //For every output neuron
-                float y = hiddenOutput.get(0, i);
-                float delta = w2.get(i, j) * outputGrad.get(0, j) * sigder(y);
-                hiddenGrad.set(0, i, delta);
-            }
+        //Tune biases
+        for(int i=bias.length-1; i>=0; i--){
+            bias[i] = bias[i].plus(gradient[i].times(alpha));
         }
         
-        //Calculate layer 1 biases
-        b1 = b1.plus(hiddenGrad.times(alpha));
-        
-//        System.out.println("Layer 1 GRAD");
-//        hiddenGrad.print();
-        
-        //Tune layer 1
-        for(int i=0; i<w1.getCols(); i++){          //For every hidden neuron
-            for(int j=0; j<w1.getRows(); j++){      //For every input neuron
-                
-                float dw = alpha * I.get(0, j) * hiddenGrad.get(0, i);
-                float w = w1.get(j, i) + dw;
-                w1.set(j, i, w);
-            }
+        //Tune weights
+        for(int i=weight.length-1; i>0; i--){
+            weight[i] = weight[i].plus(gradient[i].times(output[i-1].transpose()).times(alpha));
         }
-        
-//        System.out.println("W1");
-//        w1.print();
     }
     
     private void fillRandom(Matrix m){

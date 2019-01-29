@@ -41,9 +41,17 @@ public class Matrix {
     }
     
     public void set(float[] data){
-        if(N == 1 ^ M == 1)
+        
+        if(N == 1 && data.length == M)
             this.data[0] = data;
-        else
+        
+        else if(M == 1 && data.length == N){
+            
+            for(int i=0; i<N; i++){
+                this.data[i][0] = data[i];
+            }
+            
+        } else
             System.out.println("Matrix has more than one row or col!");
     }
     
@@ -64,7 +72,7 @@ public class Matrix {
     public Matrix times(Matrix b){
         
         if(M != b.getRows()){
-            System.out.println("Incompatable dimensions!");
+            System.out.println("MULTIPLY Incompatable dimensions! (" + N + "," + M + ")(" + b.getRows() + "," + b.getCols() + ")");
             return null;
         }
         
@@ -90,7 +98,7 @@ public class Matrix {
     
     public Matrix plus(Matrix b){
         if(N != b.getRows() || M != b.getCols()){
-            System.out.println("Matrix dimensions do not match!");
+            System.out.println("ADDING Matrix dimensions do not match! (" + N + "," + M + ")(" + b.getRows() + "," + b.getCols() + ")");
             return null;
         }
         
@@ -108,7 +116,11 @@ public class Matrix {
         return result;
     }
     
-    public Matrix transverse(){
+    public Matrix minus(Matrix b){
+        return this.plus(b.times(-1));
+    }
+    
+    public Matrix transpose(){
         Matrix result = new Matrix(M, N);
         
         for(int i=0; i<N; i++){

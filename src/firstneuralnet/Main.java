@@ -56,11 +56,11 @@ public class Main {
 //            {0, 0, 1, 1}
 //        };
 
-        int[] hidden = {12, 12};
-        XORNN net = new XORNN(2, 12, 1);
+        int[] hidden = {5, 5};
+        XORNN net = new XORNN(2, hidden, 1);
         
         System.out.println("TRAINING...");
-        for(int i=0; i<10000; i++){
+        for(int i=0; i<50000; i++){
             int index = (int)(Math.random() * p.length);
             net.train(p[index], t[index]);
         }
@@ -77,17 +77,19 @@ public class Main {
                 test[i] = sc.nextInt();
             }
             
-            float[][] answer = net.compute(test);
-            for(int i=0; i<t[0].length; i++){
-                
-                if(answer[0][i] > 0.5)
-                    System.out.print(1);
-                else
-                    System.out.print(0);
-                
-//                System.out.print(answer[0][i]);
-            }
-            System.out.println();
+            Matrix answer = net.compute(test);
+            answer.print();
+            
+//            for(int i=0; i<answer.getRows; i++){
+//                
+//                if(answer[i][0] > 0.5)
+//                    System.out.print(1);
+//                else
+//                    System.out.print(0);
+//                
+////                System.out.print(answer[0][i]);
+//            }
+//            System.out.println();
         }
     }
 
